@@ -45,6 +45,8 @@ curl -H "Authorization: Bearer <token>" http://localhost:9867/health
 Token: `pinchtab config token` or `~/.pinchtab/config.json` → `server.token`
 Default port: `9867`. Check health before any other call.
 
+**IDPI (Domain Allowlist):** If navigation fails with `Domain not in allowlist`, the server has IDPI enabled. Check `~/.pinchtab/config.json` → `security.idpi.allowedDomains`. Add required domains or set `security.idpi.enabled: false` for unrestricted browsing.
+
 ---
 
 PinchTab gives agents a browser they can drive through stable accessibility refs, low-token text extraction, and persistent profiles or instances. Treat it as a CLI-first browser skill; use the HTTP API only when the CLI is unavailable or you need profile-management routes that do not exist in the CLI yet.
