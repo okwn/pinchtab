@@ -403,6 +403,10 @@ curl -X POST http://localhost:9868/action \
   -H "Content-Type: application/json" \
   -d '{"kind":"fill","selector":"e3","text":"ada@example.com"}'
 
+curl -X POST http://localhost:9868/action \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"select","selector":"#country","value":"United Kingdom"}'
+
 curl http://localhost:9868/text
 
 ## Instance-scoped solve (instance port, not server port)
