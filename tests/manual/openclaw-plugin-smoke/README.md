@@ -10,6 +10,7 @@ What it does:
 - runs several `openclaw agent` prompts against the fixture site
 - verifies the returned answers
 - verifies fixture access logs show real browser traffic from Pinchtab
+- proves same-agent session reuse and cross-agent isolation with dedicated `alpha` / `beta` smoke turns
 
 ## Requirements
 
@@ -37,7 +38,7 @@ OPENCLAW_VERSION=2026.5.2 \
 
 The script copies results into `tests/manual/openclaw-plugin-smoke/artifacts/<timestamp>/`:
 
-- `summary.json` — scenario results + log checks
+- `summary.json` — scenario results + log checks, including `sessionProof`
 - `agent-*.json` — raw OpenClaw CLI output per prompt
 - `gateway.log` — OpenClaw gateway log
 - `plugin-install.log` — plugin install log

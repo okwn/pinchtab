@@ -26,9 +26,13 @@ require_file() {
 require_file "$STATE_SOURCE/openclaw.json"
 require_file "$STATE_SOURCE/agents/main/agent/auth-profiles.json"
 
-mkdir -p "$TEMP_STATE/agents/main/agent"
+for agent in main alpha beta; do
+  mkdir -p "$TEMP_STATE/agents/$agent/agent"
+done
 cp "$STATE_SOURCE/openclaw.json" "$TEMP_STATE/openclaw.json"
-cp "$STATE_SOURCE/agents/main/agent/auth-profiles.json" "$TEMP_STATE/agents/main/agent/auth-profiles.json"
+for agent in main alpha beta; do
+  cp "$STATE_SOURCE/agents/main/agent/auth-profiles.json" "$TEMP_STATE/agents/$agent/agent/auth-profiles.json"
+done
 for dir in credentials identity gateway service-env; do
   if [[ -d "$STATE_SOURCE/$dir" ]]; then
     cp -R "$STATE_SOURCE/$dir" "$TEMP_STATE/$dir"
