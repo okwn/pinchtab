@@ -306,7 +306,7 @@ GET  /cache/status
 Notes:
 
 - download and upload endpoints are gated by `security.allowDownload` and `security.allowUpload`
-- cookie read/write endpoints (`GET/POST /cookies`, plus tab-scoped variants) are gated by `security.allowCookies`; `DELETE /cookies` and `DELETE /tabs/{id}/cookies` remain available so operators can remove session state
+- cookie endpoints (`GET/POST/DELETE /cookies`, plus tab-scoped variants) are gated by `security.allowCookies`
 - download automatically decompresses `.gz` files and returns the decompressed content
 - `security.downloadAllowedDomains` can whitelist specific domains (bypasses SSRF checks for those domains). Setting `["*"]` matches every host and disables all private-IP protection on the download endpoint.
 - clipboard endpoints are gated by `security.allowClipboard`
@@ -613,7 +613,7 @@ These gates are not ordinary feature toggles. Enabling them is a documented, non
 
 - `/evaluate` and `/tabs/{id}/evaluate` -> `security.allowEvaluate`
 - `/download` and `/tabs/{id}/download` -> `security.allowDownload`
-- `GET/POST /cookies` and `GET/POST /tabs/{id}/cookies` -> `security.allowCookies`
+- `GET/POST/DELETE /cookies` and `GET/POST/DELETE /tabs/{id}/cookies` -> `security.allowCookies`
 - `/upload` and `/tabs/{id}/upload` -> `security.allowUpload`
 - clipboard routes -> `security.allowClipboard`
 - attach routes -> `security.attach`

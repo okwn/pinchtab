@@ -60,7 +60,7 @@ Rules: only `nav <url>` auto-starts the default local server; `snap`, `text`, `h
 - Do not upload local files unless the user explicitly names the file and the destination flow requires it.
 - Do not save screenshots, PDFs, or downloads to arbitrary paths — use a user-specified path or a safe temporary/workspace directory.
 - Do not use PinchTab to inspect unrelated local files, browser secrets, stored credentials, or system configuration outside the task.
-- Cookie read/write is disabled by default; do not inspect or expose cookies without explicit user approval.
+- Cookie access is disabled by default; do not inspect, change, or clear cookies without explicit user approval.
 - Network exports (`pinchtab network-export`) may contain private URLs, auth tokens, and response bodies. Omit `--body` for sensitive sessions. Delete or redact export files after use.
 
 ## Selectors

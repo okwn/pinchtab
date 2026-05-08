@@ -53,6 +53,25 @@ func TestHandleSetCookies_DisabledByDefault(t *testing.T) {
 	}
 }
 
+func TestHandleClearCookies_DisabledByDefault(t *testing.T) {
+	b := &cookieClearMockBridge{}
+	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+	req := httptest.NewRequest("DELETE", "/cookies", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleClearCookies(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+	if b.clearCookiesCalled {
+		t.Fatal("expected ClearCookies not to be called")
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("security.allowCookies")) {
+		t.Fatalf("expected allowCookies hint, got %s", w.Body.String())
+	}
+}
+
 func TestHandleSetCookies_NoTab(t *testing.T) {
 	h := New(&failMockBridge{}, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 	body := `{"url":"https://pinchtab.com","cookies":[{"name":"a","value":"b"}],"tabId":"nonexistent"}`
@@ -150,7 +169,7 @@ func (m *cookieClearMockBridge) ClearCookies(ctx context.Context) error {
 
 func TestHandleClearCookies_Success(t *testing.T) {
 	b := &cookieClearMockBridge{}
-	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+	h := New(b, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 
 	req := httptest.NewRequest("DELETE", "/cookies", nil)
 	w := httptest.NewRecorder()
@@ -174,7 +193,7 @@ func TestHandleClearCookies_Success(t *testing.T) {
 
 func TestHandleTabClearCookies_Success(t *testing.T) {
 	b := &cookieClearMockBridge{}
-	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+	h := New(b, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 
 	req := httptest.NewRequest("DELETE", "/tabs/tab1/cookies", nil)
 	req.SetPathValue("id", "tab1")
@@ -198,7 +217,7 @@ func TestHandleTabClearCookies_Success(t *testing.T) {
 }
 
 func TestHandleTabClearCookies_MissingTabID(t *testing.T) {
-	h := New(&cookieClearMockBridge{}, &config.RuntimeConfig{}, nil, nil, nil)
+	h := New(&cookieClearMockBridge{}, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 
 	req := httptest.NewRequest("DELETE", "/tabs//cookies", nil)
 	w := httptest.NewRecorder()
@@ -209,10 +228,27 @@ func TestHandleTabClearCookies_MissingTabID(t *testing.T) {
 	}
 }
 
+func TestHandleTabClearCookies_DisabledByDefault(t *testing.T) {
+	b := &cookieClearMockBridge{}
+	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+
+	req := httptest.NewRequest("DELETE", "/tabs/tab1/cookies", nil)
+	req.SetPathValue("id", "tab1")
+	w := httptest.NewRecorder()
+	h.HandleTabClearCookies(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+	if b.clearCookiesCalled {
+		t.Fatal("expected ClearCookies not to be called")
+	}
+}
+
 func TestHandleTabClearCookies_NoTab(t *testing.T) {
 	b := &cookieClearMockBridge{}
 	b.failTab = true
-	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+	h := New(b, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 
 	req := httptest.NewRequest("DELETE", "/tabs/nonexistent/cookies", nil)
 	req.SetPathValue("id", "nonexistent")
@@ -226,7 +262,7 @@ func TestHandleTabClearCookies_NoTab(t *testing.T) {
 
 func TestHandleClearCookies_RouteRegistration(t *testing.T) {
 	b := &cookieClearMockBridge{}
-	h := New(b, &config.RuntimeConfig{}, nil, nil, nil)
+	h := New(b, &config.RuntimeConfig{AllowCookies: true}, nil, nil, nil)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux, nil)
 

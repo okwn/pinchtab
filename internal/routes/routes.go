@@ -93,7 +93,7 @@ var coreEndpoints = []Endpoint{
 	// Cookies
 	{"GET", "/cookies", "Get cookies", CapCookies, true},
 	{"POST", "/cookies", "Set cookies", CapCookies, true},
-	{"DELETE", "/cookies", "Clear all cookies", CapNone, true},
+	{"DELETE", "/cookies", "Clear all cookies", CapCookies, true},
 
 	// Metrics
 	{"GET", "/metrics", "Runtime metrics", CapNone, true},

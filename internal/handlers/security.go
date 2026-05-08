@@ -63,7 +63,7 @@ func (h *Handlers) endpointSecurityStates() map[string]endpointSecurityState {
 			Enabled: h.cookiesEnabled(),
 			Setting: "security.allowCookies",
 			Message: httpx.DisabledEndpointMessage("cookies", "security.allowCookies"),
-			Paths:   []string{"GET /cookies", "POST /cookies", "GET /tabs/{id}/cookies", "POST /tabs/{id}/cookies"},
+			Paths:   []string{"GET /cookies", "POST /cookies", "DELETE /cookies", "GET /tabs/{id}/cookies", "POST /tabs/{id}/cookies", "DELETE /tabs/{id}/cookies"},
 		},
 		"upload": {
 			Enabled: h.uploadEnabled(),

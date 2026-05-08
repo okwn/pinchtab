@@ -146,6 +146,10 @@ type cookieSetRequest struct {
 //
 // @Endpoint DELETE /cookies
 func (h *Handlers) HandleClearCookies(w http.ResponseWriter, r *http.Request) {
+	if !h.ensureCookiesEnabled(w) {
+		return
+	}
+
 	if err := h.ensureChrome(); err != nil {
 		httpx.Error(w, http.StatusServiceUnavailable, err)
 		return
@@ -172,6 +176,10 @@ func (h *Handlers) HandleTabClearCookies(w http.ResponseWriter, r *http.Request)
 	tabID := r.PathValue("id")
 	if tabID == "" {
 		httpx.Error(w, 400, fmt.Errorf("tab id required"))
+		return
+	}
+
+	if !h.ensureCookiesEnabled(w) {
 		return
 	}
 
