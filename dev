@@ -47,6 +47,7 @@ COMMANDS=(
   "  agent-browser:📊:Run agent-browser benchmark via Anthropic Messages API"
   "  browserbench:📊:Run BrowserBench CSV tasks through PinchTab"
   "doctor:🩺:Setup dev environment"
+  "zombie:🧟:Run long Docker zombie-process soak smoke"
   "install:📦:Build & install to ~/.local/bin (override with PINCHTAB_INSTALL_DIR)"
   "  skills:📦:Symlink ./skills/* into ~/.claude/skills (override with CLAUDE_SKILLS_DIR)"
   "pack plugin:🎁:Build a ClawHub-ready plugin tarball (optionally pass <version>)"
@@ -303,6 +304,7 @@ run_command() {
       ;;
     "run")          exec bash scripts/run.sh ;;
     "doctor")       exec bash scripts/doctor.sh ;;
+    "zombie")       exec bash scripts/docker-zombie-soak-smoke.sh ;;
     "hooks")        exec bash scripts/install-hooks.sh ;;
     *)
       echo "  ${ERROR}Unknown command: $target${NC}"

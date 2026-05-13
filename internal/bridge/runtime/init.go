@@ -304,9 +304,21 @@ func startChromeWithRemoteAllocator(parentCtx context.Context, cfg *config.Runti
 		return nil, nil, stealth.LaunchModeUninitialized, fmt.Errorf("failed to start chrome directly: %w", err)
 	}
 
+	// Reap the chrome process when it exits to prevent zombies.
+	waitDone := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(waitDone)
+	}()
+
+	killAndReap := func() {
+		_ = cmd.Process.Kill()
+		<-waitDone
+	}
+
 	wsURL, err := waitForChromeDevTools(debugPort, 30*time.Second)
 	if err != nil {
-		_ = cmd.Process.Kill()
+		killAndReap()
 		return nil, nil, stealth.LaunchModeUninitialized, fmt.Errorf("chrome devtools not ready on port %d: %w", debugPort, err)
 	}
 
@@ -321,14 +333,14 @@ func startChromeWithRemoteAllocator(parentCtx context.Context, cfg *config.Runti
 	})); err != nil {
 		browserCancel()
 		remoteAllocCancel()
-		_ = cmd.Process.Kill()
+		killAndReap()
 		return nil, nil, stealth.LaunchModeUninitialized, fmt.Errorf("failed to connect/inject via remote: %w", err)
 	}
 
 	return browserCtx, func() {
 		browserCancel()
 		remoteAllocCancel()
-		_ = cmd.Process.Kill()
+		killAndReap()
 	}, stealth.LaunchModeDirectFallback, nil
 }
 
