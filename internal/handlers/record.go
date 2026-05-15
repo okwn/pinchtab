@@ -200,6 +200,16 @@ func (rec *recorder) stop(callerOwner, outputPath string) (RecordStopResult, err
 		return result, fmt.Errorf("no frames captured")
 	}
 
+	if outputPath == "" {
+		rec.mu.Lock()
+		rec.state = stateFinished
+		rec.cleanup()
+		rec.state = stateIdle
+		rec.mu.Unlock()
+		slog.Info("recording discarded", "frames", frameNum, "format", format)
+		return result, nil
+	}
+
 	rec.mu.Lock()
 	rec.state = stateEncoding
 	rec.mu.Unlock()
@@ -434,7 +444,7 @@ func encodeGIFToFile(tmpDir, outputPath string, fps int, scale float64) error {
 		delay = 1
 	}
 
-	outFile, err := os.Create(outputPath)
+	outFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return fmt.Errorf("create gif output: %w", err)
 	}
@@ -490,8 +500,15 @@ func encodeGIFToFile(tmpDir, outputPath string, fps int, scale float64) error {
 }
 
 func encodeFFmpegToFile(ctx context.Context, tmpDir, outputPath, format string, fps int, scale float64, codec string, extraArgs ...string) error {
+	// Pre-create exclusively to prevent symlink following by ffmpeg.
+	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fmt.Errorf("create output: %w", err)
+	}
+	_ = f.Close()
+
 	args := []string{
-		"-y",
+		"-y", // safe: we own the file from O_EXCL above
 		"-framerate", strconv.Itoa(fps),
 		"-i", filepath.Join(tmpDir, "frame_%06d.jpg"),
 	}
@@ -636,24 +653,36 @@ func (h *Handlers) HandleRecordStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleRecordStop stops the active recording. Encoding runs in the background;
-// this endpoint returns immediately with a JSON status so callers are not
-// blocked. Use /record/status to check encoding progress.
+// HandleRecordStop stops the active recording. If outputPath is provided,
+// encoding runs in the background and the endpoint returns immediately.
+// If outputPath is empty, the recording is discarded (capture stops, no
+// encoding). Use /record/status to check encoding progress.
 func (h *Handlers) HandleRecordStop(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OutputPath string `json:"outputPath"`
 	}
 	_ = httpx.DecodeJSONBody(w, r, 0, &req)
 
-	if req.OutputPath == "" {
-		httpx.ErrorCode(w, 400, "missing_output_path", "outputPath is required — the encoded file will be written there", false, nil)
-		return
+	if req.OutputPath != "" {
+		if err := validateOutputPath(req.OutputPath); err != nil {
+			httpx.ErrorCode(w, 400, "invalid_output_path", err.Error(), false, nil)
+			return
+		}
 	}
 
 	owner := authenticatedOwner(r)
 	result, err := h.recorder.stop(owner, req.OutputPath)
 	if err != nil {
 		httpx.ErrorCode(w, 400, "recording_error", err.Error(), false, nil)
+		return
+	}
+
+	if req.OutputPath == "" {
+		httpx.JSON(w, 200, map[string]any{
+			"status": "discarded",
+			"format": result.Format,
+			"frames": result.Frames,
+		})
 		return
 	}
 
@@ -666,6 +695,48 @@ func (h *Handlers) HandleRecordStop(w http.ResponseWriter, r *http.Request) {
 		"frames": result.Frames,
 		"hint":   fmt.Sprintf("Encoding %d frames to %s. Use `record status` to check progress — the file will appear at the path once encoding completes.", result.Frames, result.OutputPath),
 	})
+}
+
+// validateOutputPath checks that an output path is safe to write to:
+// absolute, supported extension, parent dir exists and is not a symlink,
+// target and temp file do not already exist.
+func validateOutputPath(path string) error {
+	cleaned := filepath.Clean(path)
+	if !filepath.IsAbs(cleaned) {
+		return fmt.Errorf("outputPath must be an absolute path, got %q", path)
+	}
+	ext := filepath.Ext(cleaned)
+	switch ext {
+	case ".gif", ".webm", ".mp4":
+	default:
+		return fmt.Errorf("unsupported extension %q — use .gif, .webm, or .mp4", ext)
+	}
+
+	dir := filepath.Dir(cleaned)
+	dirInfo, err := os.Lstat(dir)
+	if err != nil {
+		return fmt.Errorf("output directory: %w", err)
+	}
+	if dirInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("output directory %q is a symlink", dir)
+	}
+	if !dirInfo.IsDir() {
+		return fmt.Errorf("output directory %q is not a directory", dir)
+	}
+
+	if info, err := os.Lstat(cleaned); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to follow symlink at %q", cleaned)
+		}
+		return fmt.Errorf("file already exists at %q — remove it first or choose another path", cleaned)
+	}
+
+	tmpPath := cleaned + ".encoding.tmp"
+	if _, err := os.Lstat(tmpPath); err == nil {
+		return fmt.Errorf("temp file already exists at %q — a previous encoding may still be running", tmpPath)
+	}
+
+	return nil
 }
 
 // HandleRecordStatus returns the current recording status.

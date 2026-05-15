@@ -69,10 +69,12 @@ func handleRecordStop(c *Client) func(context.Context, mcp.CallToolRequest) (*mc
 
 		dest, pathErr := safeRecordPath(file)
 		if pathErr != nil {
+			// Discard the recording: empty outputPath tells the server to
+			// stop capture without encoding.
 			_, _, stopErr := c.Post(ctx, "/record/stop", map[string]any{})
-			msg := fmt.Sprintf("invalid output path: %v", pathErr)
+			msg := fmt.Sprintf("invalid output path: %v — recording discarded", pathErr)
 			if stopErr != nil {
-				msg += fmt.Sprintf(" (also failed to stop recording: %v)", stopErr)
+				msg += fmt.Sprintf(" (also failed to discard recording: %v)", stopErr)
 			}
 			return mcp.NewToolResultError(msg), nil
 		}
