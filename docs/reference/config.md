@@ -174,6 +174,8 @@ Current nested file-config shape:
     "stateDir": "/path/to/state",
     "engine": "chrome",
     "networkBufferSize": 100,
+    "retainNetworkBodies": false,
+    "retainNetworkBodyMaxBytes": 262144,
     "trustProxyHeaders": false,
     "cookieSecure": null
   },

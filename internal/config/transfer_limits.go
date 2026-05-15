@@ -3,6 +3,7 @@ package config
 const (
 	DefaultDownloadMaxBytes      = 20 << 20
 	MaxDownloadMaxBytes          = 100 << 20
+	MaxRetainNetworkBodyMaxBytes = 10 << 20
 	DefaultUploadMaxRequestBytes = 10 << 20
 	MaxUploadMaxRequestBytes     = 100 << 20
 	DefaultUploadMaxFiles        = 8

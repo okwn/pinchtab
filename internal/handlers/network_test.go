@@ -221,6 +221,42 @@ func TestHandleNetwork_NilMonitor(t *testing.T) {
 	}
 }
 
+func TestHandleNetworkByIDUsesRetainedBody(t *testing.T) {
+	nm := bridge.NewNetworkMonitor(100)
+	buf := nm.GetOrCreateBufferForTest("tab1")
+	const retainedBody = "{\"ok\":true}"
+	buf.Add(bridge.NetworkEntry{
+		RequestID:     "retained-1",
+		URL:           "https://api.example.com/data",
+		Method:        "GET",
+		ResourceType:  "XHR",
+		Finished:      true,
+		ResponseBody:  retainedBody,
+		Base64Encoded: false,
+		BodyRetained:  true,
+	})
+	h := newNetworkTestHandler(nm)
+
+	req := httptest.NewRequest("GET", "/network/retained-1?body=true", nil)
+	req.SetPathValue("requestId", "retained-1")
+	w := httptest.NewRecorder()
+	h.HandleNetworkByID(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["responseBody"] != retainedBody {
+		t.Fatalf("expected retained response body, got %v", got["responseBody"])
+	}
+	if got["bodyRetained"] != true {
+		t.Fatalf("expected bodyRetained=true, got %v", got["bodyRetained"])
+	}
+}
+
 func TestHandleNetworkByID_Found(t *testing.T) {
 	nm := bridge.NewNetworkMonitor(100)
 	seedBuffer(nm, "tab1")

@@ -40,6 +40,14 @@ func ValidateFileConfig(fc *FileConfig) []error {
 			})
 		}
 	}
+	if fc.Server.RetainNetworkBodyMaxBytes != nil {
+		if *fc.Server.RetainNetworkBodyMaxBytes < 0 || *fc.Server.RetainNetworkBodyMaxBytes > MaxRetainNetworkBodyMaxBytes {
+			errs = append(errs, ValidationError{
+				Field:   "server.retainNetworkBodyMaxBytes",
+				Message: fmt.Sprintf("must be between 0 and %d (got %d)", MaxRetainNetworkBodyMaxBytes, *fc.Server.RetainNetworkBodyMaxBytes),
+			})
+		}
+	}
 	if fc.MultiInstance.InstancePortStart != nil && fc.MultiInstance.InstancePortEnd != nil {
 		if *fc.MultiInstance.InstancePortStart > *fc.MultiInstance.InstancePortEnd {
 			errs = append(errs, ValidationError{

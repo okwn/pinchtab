@@ -74,6 +74,9 @@ func New(allocCtx, browserCtx context.Context, cfg *config.RuntimeConfig) *Bridg
 		LogStore:            logStore,
 		stealthLaunchMode:   stealth.LaunchModeUninitialized,
 	}
+	if cfg != nil {
+		b.netMonitor.ConfigureBodyRetention(cfg.RetainNetworkBodies, cfg.RetainNetworkBodyMaxBytes)
+	}
 	b.routeMgr = NewRouteManager(func() []string {
 		if b.Config == nil {
 			return nil

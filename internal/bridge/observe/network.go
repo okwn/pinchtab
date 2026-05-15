@@ -18,6 +18,8 @@ import (
 
 // DefaultNetworkBufferSize is the default number of entries kept per tab.
 const DefaultNetworkBufferSize = 100
+const defaultRetainBodyMaxBytesPerTab = 4 << 20
+const defaultRetainBodyConcurrency = 4
 
 const (
 	maxNetworkURLBytes          = 8 * 1024
@@ -51,14 +53,20 @@ type NetworkEntry struct {
 	Error           string            `json:"error,omitempty"`
 	Finished        bool              `json:"finished"`
 	Failed          bool              `json:"failed"`
+	ResponseBody    string            `json:"responseBody,omitempty"`
+	Base64Encoded   bool              `json:"base64Encoded,omitempty"`
+	BodyRetained    bool              `json:"bodyRetained,omitempty"`
+	BodyTruncated   bool              `json:"bodyTruncated,omitempty"`
+	BodyError       string            `json:"bodyError,omitempty"`
 }
 
 // NetworkBuffer is a thread-safe ring buffer of network entries for a single tab.
 type NetworkBuffer struct {
-	mu      sync.RWMutex
-	entries []NetworkEntry
-	index   map[string]int
-	maxSize int
+	mu            sync.RWMutex
+	entries       []NetworkEntry
+	index         map[string]int
+	maxSize       int
+	retainedBytes int64
 
 	// Inflight tracking is independent of the ring buffer so eviction
 	// doesn't corrupt the count. inflightIDs holds request IDs currently
@@ -138,6 +146,12 @@ func (nb *NetworkBuffer) Add(entry NetworkEntry) {
 		isNew = true
 		if len(nb.entries) >= nb.maxSize {
 			oldest := nb.entries[0]
+			if oldest.BodyRetained {
+				nb.retainedBytes -= int64(len(oldest.ResponseBody))
+				if nb.retainedBytes < 0 {
+					nb.retainedBytes = 0
+				}
+			}
 			delete(nb.index, oldest.RequestID)
 			nb.entries = nb.entries[1:]
 			for i, e := range nb.entries {
@@ -201,8 +215,25 @@ func (nb *NetworkBuffer) Update(requestID string, fn func(*NetworkEntry)) {
 	if !ok {
 		return
 	}
+	before := nb.entries[idx]
 	fn(&nb.entries[idx])
 	nb.entries[idx] = normalizeNetworkEntry(nb.entries[idx])
+	after := nb.entries[idx]
+	if before.BodyRetained {
+		nb.retainedBytes -= int64(len(before.ResponseBody))
+	}
+	if after.BodyRetained {
+		nb.retainedBytes += int64(len(after.ResponseBody))
+	}
+	if nb.retainedBytes < 0 {
+		nb.retainedBytes = 0
+	}
+}
+
+func (nb *NetworkBuffer) RetainedBytes() int64 {
+	nb.mu.RLock()
+	defer nb.mu.RUnlock()
+	return nb.retainedBytes
 }
 
 // List returns all entries, optionally filtered.
@@ -288,10 +319,14 @@ func MatchStatusRange(status int, pattern string) bool {
 
 // NetworkMonitor manages network capture for all tabs.
 type NetworkMonitor struct {
-	mu        sync.RWMutex
-	buffers   map[string]*NetworkBuffer
-	listeners map[string]context.CancelFunc
-	bufSize   int
+	mu                  sync.RWMutex
+	buffers             map[string]*NetworkBuffer
+	listeners           map[string]context.CancelFunc
+	bufSize             int
+	retainBodies        bool
+	retainBodyMaxBytes  int
+	retainBodyMaxPerTab int64
+	retainBodySemaphore chan struct{}
 }
 
 // NewNetworkMonitor creates a new monitor with the given per-tab buffer size.
@@ -301,10 +336,25 @@ func NewNetworkMonitor(bufferSize int) *NetworkMonitor {
 		bufferSize = DefaultNetworkBufferSize
 	}
 	return &NetworkMonitor{
-		buffers:   make(map[string]*NetworkBuffer),
-		listeners: make(map[string]context.CancelFunc),
-		bufSize:   bufferSize,
+		buffers:             make(map[string]*NetworkBuffer),
+		listeners:           make(map[string]context.CancelFunc),
+		bufSize:             bufferSize,
+		retainBodies:        false,
+		retainBodyMaxBytes:  0,
+		retainBodyMaxPerTab: defaultRetainBodyMaxBytesPerTab,
+		retainBodySemaphore: make(chan struct{}, defaultRetainBodyConcurrency),
 	}
+}
+
+// ConfigureBodyRetention enables optional bounded response-body retention.
+func (nm *NetworkMonitor) ConfigureBodyRetention(enabled bool, maxBytes int) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+	nm.retainBodies = enabled
+	if maxBytes < 0 {
+		maxBytes = 0
+	}
+	nm.retainBodyMaxBytes = maxBytes
 }
 
 func (nm *NetworkMonitor) getOrCreateBuffer(tabID string) *NetworkBuffer {
@@ -424,6 +474,7 @@ func (nm *NetworkMonitor) StartCaptureWithSize(tabCtx context.Context, tabID str
 				}
 			})
 			buf.MarkRequestEnd(string(e.RequestID))
+			go nm.maybeRetainBody(tabCtx, buf, string(e.RequestID))
 
 		case *network.EventLoadingFailed:
 			buf.Update(string(e.RequestID), func(entry *NetworkEntry) {
@@ -471,6 +522,61 @@ func (nm *NetworkMonitor) ClearAll() {
 	for _, buf := range nm.buffers {
 		buf.Clear()
 	}
+}
+
+func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBuffer, requestID string) {
+	nm.mu.RLock()
+	enabled := nm.retainBodies
+	maxBytes := nm.retainBodyMaxBytes
+	nm.mu.RUnlock()
+	if !enabled {
+		return
+	}
+	if buf.RetainedBytes() >= nm.retainBodyMaxPerTab {
+		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyError = "retention budget exceeded"
+		})
+		return
+	}
+	select {
+	case nm.retainBodySemaphore <- struct{}{}:
+		defer func() { <-nm.retainBodySemaphore }()
+	default:
+		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyError = "retention concurrency limit reached"
+		})
+		return
+	}
+	body, base64Encoded, err := GetResponseBodyDirect(tabCtx, requestID)
+	if err != nil {
+		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyError = err.Error()
+		})
+		return
+	}
+	truncated := false
+	if maxBytes > 0 && len(body) > maxBytes {
+		body = body[:maxBytes]
+		truncated = true
+	}
+	remainingBudget := int(nm.retainBodyMaxPerTab - buf.RetainedBytes())
+	if remainingBudget <= 0 {
+		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyError = "retention budget exceeded"
+		})
+		return
+	}
+	if len(body) > remainingBudget {
+		body = body[:remainingBudget]
+		truncated = true
+	}
+	buf.Update(requestID, func(entry *NetworkEntry) {
+		entry.ResponseBody = body
+		entry.Base64Encoded = base64Encoded
+		entry.BodyRetained = true
+		entry.BodyTruncated = truncated
+		entry.BodyError = ""
+	})
 }
 
 // GetResponseBody fetches the response body for a specific request via CDP.

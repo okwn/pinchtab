@@ -47,25 +47,27 @@ func Load() *RuntimeConfig {
 		CookieSecure:      nil,
 
 		// Security defaults
-		AllowEvaluate:          false,
-		AllowMacro:             false,
-		AllowScreencast:        false,
-		AllowDownload:          false,
-		AllowCookies:           false,
-		AllowNetworkIntercept:  false,
-		AllowedDomains:         append([]string(nil), defaultLocalAllowedDomains...),
-		DownloadAllowedDomains: nil,
-		DownloadMaxBytes:       DefaultDownloadMaxBytes,
-		AllowUpload:            false,
-		AllowClipboard:         false,
-		AllowStateExport:       false,
-		StateEncryptionKey:     "",
-		EnableActionGuards:     true,
-		UploadMaxRequestBytes:  DefaultUploadMaxRequestBytes,
-		UploadMaxFiles:         DefaultUploadMaxFiles,
-		UploadMaxFileBytes:     DefaultUploadMaxFileBytes,
-		UploadMaxTotalBytes:    DefaultUploadMaxTotalBytes,
-		MaxRedirects:           -1, // Unlimited by default; set to N to limit redirect hops
+		AllowEvaluate:             false,
+		AllowMacro:                false,
+		AllowScreencast:           false,
+		AllowDownload:             false,
+		AllowCookies:              false,
+		AllowNetworkIntercept:     false,
+		RetainNetworkBodies:       false,
+		RetainNetworkBodyMaxBytes: 256 * 1024,
+		AllowedDomains:            append([]string(nil), defaultLocalAllowedDomains...),
+		DownloadAllowedDomains:    nil,
+		DownloadMaxBytes:          DefaultDownloadMaxBytes,
+		AllowUpload:               false,
+		AllowClipboard:            false,
+		AllowStateExport:          false,
+		StateEncryptionKey:        "",
+		EnableActionGuards:        true,
+		UploadMaxRequestBytes:     DefaultUploadMaxRequestBytes,
+		UploadMaxFiles:            DefaultUploadMaxFiles,
+		UploadMaxFileBytes:        DefaultUploadMaxFileBytes,
+		UploadMaxTotalBytes:       DefaultUploadMaxTotalBytes,
+		MaxRedirects:              -1, // Unlimited by default; set to N to limit redirect hops
 
 		// Browser / instance defaults
 		Headless:           true,
@@ -262,6 +264,12 @@ func applyFileConfig(cfg *RuntimeConfig, fc *FileConfig) {
 	}
 	if fc.Server.NetworkBufferSize != nil && *fc.Server.NetworkBufferSize > 0 {
 		cfg.NetworkBufferSize = ClampNetworkBufferSize(*fc.Server.NetworkBufferSize)
+	}
+	if fc.Server.RetainNetworkBodies != nil {
+		cfg.RetainNetworkBodies = *fc.Server.RetainNetworkBodies
+	}
+	if fc.Server.RetainNetworkBodyMaxBytes != nil && *fc.Server.RetainNetworkBodyMaxBytes >= 0 {
+		cfg.RetainNetworkBodyMaxBytes = *fc.Server.RetainNetworkBodyMaxBytes
 	}
 	if fc.Server.TrustProxyHeaders != nil {
 		cfg.TrustProxyHeaders = *fc.Server.TrustProxyHeaders

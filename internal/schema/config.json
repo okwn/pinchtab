@@ -177,6 +177,21 @@
             }
           ]
         },
+        "retainNetworkBodies": {
+          "$ref": "#/definitions/nullableBoolean"
+        },
+        "retainNetworkBodyMaxBytes": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10485760
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "trustProxyHeaders": {
           "$ref": "#/definitions/nullableBoolean"
         },

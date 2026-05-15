@@ -1,0 +1,7 @@
+{
+  "server": {
+    "networkBufferSize": 200,
+    "retainNetworkBodies": true,
+    "retainNetworkBodyMaxBytes": 262144
+  }
+}

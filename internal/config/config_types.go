@@ -110,7 +110,9 @@ type RuntimeConfig struct {
 	Engine string
 
 	// Network monitoring
-	NetworkBufferSize int // Per-tab network buffer size (default 100)
+	NetworkBufferSize         int  // Per-tab network buffer size (default 100)
+	RetainNetworkBodies       bool // When true, opportunistically retain response bodies in the per-tab network buffer
+	RetainNetworkBodyMaxBytes int  // Max retained response-body bytes per entry when RetainNetworkBodies is enabled
 
 	// Scheduler settings (dashboard mode only)
 	Scheduler SchedulerConfig
@@ -257,14 +259,16 @@ type FileConfig struct {
 }
 
 type ServerConfig struct {
-	Port              string `json:"port,omitempty"`
-	Bind              string `json:"bind,omitempty"`
-	Token             string `json:"token,omitempty"`
-	StateDir          string `json:"stateDir,omitempty"`
-	Engine            string `json:"engine,omitempty"`
-	NetworkBufferSize *int   `json:"networkBufferSize,omitempty"`
-	TrustProxyHeaders *bool  `json:"trustProxyHeaders,omitempty"`
-	CookieSecure      *bool  `json:"cookieSecure,omitempty"`
+	Port                      string `json:"port,omitempty"`
+	Bind                      string `json:"bind,omitempty"`
+	Token                     string `json:"token,omitempty"`
+	StateDir                  string `json:"stateDir,omitempty"`
+	Engine                    string `json:"engine,omitempty"`
+	NetworkBufferSize         *int   `json:"networkBufferSize,omitempty"`
+	RetainNetworkBodies       *bool  `json:"retainNetworkBodies,omitempty"`
+	RetainNetworkBodyMaxBytes *int   `json:"retainNetworkBodyMaxBytes,omitempty"`
+	TrustProxyHeaders         *bool  `json:"trustProxyHeaders,omitempty"`
+	CookieSecure              *bool  `json:"cookieSecure,omitempty"`
 }
 
 type SessionsFileConfig struct {

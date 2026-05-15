@@ -261,6 +261,7 @@ func (b *Bridge) RestartBrowser(cfg *config.RuntimeConfig) error {
 	if cfg.NetworkBufferSize > 0 {
 		b.netMonitor = NewNetworkMonitor(cfg.NetworkBufferSize)
 	}
+	b.netMonitor.ConfigureBodyRetention(cfg.RetainNetworkBodies, cfg.RetainNetworkBodyMaxBytes)
 	b.fingerprintMu.Lock()
 	b.fingerprintOverlays = make(map[string]bool)
 	b.fingerprintMu.Unlock()

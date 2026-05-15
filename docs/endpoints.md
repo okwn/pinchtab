@@ -457,12 +457,19 @@ Network query parameters:
 - `bufferSize`
 - `body=true` on detail requests
 
+Response body behavior for network detail/export:
+
+- by default, response bodies are fetched on demand from live CDP state and may no longer be available for older requests
+- when `server.retainNetworkBodies=true`, PinchTab opportunistically retains bounded response bodies in the in-memory network buffer and returns the retained body first
+- retained bodies are capped by `server.retainNetworkBodyMaxBytes`; oversized retained bodies are truncated and marked with `bodyTruncated=true`
+- retained responses may include `bodyRetained=true`
+
 Network export query parameters:
 
 - `format` — `har` (default) or `ndjson`. Pluggable: new formats register at startup.
 - `output=file` — save to disk instead of streaming to response
 - `path` — filename when `output=file` (auto-generated if omitted, required for `/export/stream`)
-- `body=true` — include response bodies (fetched on demand, 10 MB cap per entry)
+- `body=true` — include response bodies (fetched on demand by default; retained-body mode can make this durable for bounded entries)
 - `redact` — `true` (default) redacts Cookie/Authorization/Set-Cookie. `false` exports raw headers.
 - all standard network filters (`filter`, `method`, `status`, `type`, `limit`)
 

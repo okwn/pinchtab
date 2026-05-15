@@ -159,12 +159,24 @@ func (h *Handlers) HandleNetworkByID(w http.ResponseWriter, r *http.Request) {
 
 	// Optionally include response body
 	if r.URL.Query().Get("body") == "true" && entry.Finished && !entry.Failed {
-		body, base64Encoded, err := bridge.GetResponseBodyDirect(tabCtx, requestID)
-		if err != nil {
-			result["bodyError"] = err.Error()
+		if entry.BodyRetained {
+			result["responseBody"] = entry.ResponseBody
+			result["base64Encoded"] = entry.Base64Encoded
+			result["bodyRetained"] = true
+			if entry.BodyTruncated {
+				result["bodyTruncated"] = true
+			}
+			if entry.BodyError != "" {
+				result["bodyError"] = entry.BodyError
+			}
 		} else {
-			result["responseBody"] = body
-			result["base64Encoded"] = base64Encoded
+			body, base64Encoded, err := bridge.GetResponseBodyDirect(tabCtx, requestID)
+			if err != nil {
+				result["bodyError"] = err.Error()
+			} else {
+				result["responseBody"] = body
+				result["base64Encoded"] = base64Encoded
+			}
 		}
 	}
 
