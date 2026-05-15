@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/gif"
 	"image/jpeg"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,18 +17,22 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/pinchtab/pinchtab/internal/activity"
 	"github.com/pinchtab/pinchtab/internal/httpx"
 	"github.com/pinchtab/pinchtab/internal/session"
 )
 
 const (
 	maxRecordDuration = 5 * time.Minute
-	maxRecordFrames   = 9000      // 5min × 30fps
-	maxGIFFrames      = 600       // ~2min at 5fps; keeps memory bounded during GIF encoding
+	maxRecordFrames   = 9000 // 5min × 30fps
+	maxGIFFrames      = 600  // ~2min at 5fps
+	maxGIFFramePixels = 1280 * 720
+	maxGIFEncodeBytes = 256 << 20 // 256 MB total paletted frame budget
 	maxTempBytes      = 1 << 30   // 1 GB disk
 	maxOutputBytes    = 256 << 20 // 256 MB encoded
 	encodeTimeout     = 2 * time.Minute
@@ -135,10 +140,6 @@ func (rec *recorder) stop(callerOwner string) ([]byte, string, error) {
 	var encErr error
 	if frameNum > 0 {
 		data, encErr = encode(tmpDir, format, fps, scale)
-		if encErr == nil && len(data) > maxOutputBytes {
-			data = nil
-			encErr = fmt.Errorf("encoded output too large (max %d bytes)", maxOutputBytes)
-		}
 	} else {
 		encErr = fmt.Errorf("no frames captured")
 	}
@@ -304,7 +305,6 @@ func encodeGIF(tmpDir string, fps int, scale float64) ([]byte, error) {
 		delay = 1
 	}
 
-	// Encode to a temp file to avoid holding all paletted frames in memory.
 	outPath := filepath.Join(tmpDir, "output.gif")
 	outFile, err := os.Create(outPath)
 	if err != nil {
@@ -313,6 +313,7 @@ func encodeGIF(tmpDir string, fps int, scale float64) ([]byte, error) {
 	defer func() { _ = outFile.Close() }()
 
 	g := &gif.GIF{LoopCount: 0}
+	var palettedBytes int64
 
 	for _, f := range files {
 		data, err := os.ReadFile(f)
@@ -329,17 +330,32 @@ func encodeGIF(tmpDir string, fps int, scale float64) ([]byte, error) {
 		}
 
 		bounds := img.Bounds()
+		pixels := bounds.Dx() * bounds.Dy()
+		if pixels > maxGIFFramePixels {
+			ratio := float64(maxGIFFramePixels) / float64(pixels)
+			img = scaleImage(img, ratio)
+			bounds = img.Bounds()
+			pixels = bounds.Dx() * bounds.Dy()
+		}
+
+		if palettedBytes+int64(pixels) > maxGIFEncodeBytes {
+			slog.Info("GIF encode: memory budget reached, truncating", "frames", len(g.Image))
+			break
+		}
+
 		paletted := image.NewPaletted(bounds, palette.Plan9)
 		draw.FloydSteinberg.Draw(paletted, bounds, img, bounds.Min)
 		g.Image = append(g.Image, paletted)
 		g.Delay = append(g.Delay, delay)
+		palettedBytes += int64(pixels)
 	}
 
 	if len(g.Image) == 0 {
 		return nil, fmt.Errorf("no frames to encode")
 	}
 
-	if err := gif.EncodeAll(outFile, g); err != nil {
+	lw := &limitedWriter{w: outFile, max: int64(maxOutputBytes)}
+	if err := gif.EncodeAll(lw, g); err != nil {
 		return nil, fmt.Errorf("gif encode: %w", err)
 	}
 	_ = outFile.Close()
@@ -363,6 +379,7 @@ func encodeFFmpeg(ctx context.Context, tmpDir, format string, fps int, scale flo
 
 	args = append(args, "-c:v", codec)
 	args = append(args, extraArgs...)
+	args = append(args, "-fs", strconv.Itoa(maxOutputBytes))
 	args = append(args, outFile)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
@@ -536,13 +553,41 @@ func (h *Handlers) HandleRecordStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // authenticatedOwner derives a non-secret owner key from the authenticated
-// session context. Only session-authenticated requests get an owner; token/cookie
-// auth callers get "" (anonymous). X-Agent-Id is not used because it is
-// caller-controllable on non-session auth paths.
+// session context. On direct requests, session.FromRequest provides the
+// session. On proxy hops (orchestrator → child bridge), the session is not
+// attached but X-PinchTab-Session-Id / X-Agent-Id headers are preserved by
+// trust middleware — we honor those only when IsTrustedInternalProxy is true.
 func authenticatedOwner(r *http.Request) string {
-	sess, ok := session.FromRequest(r)
-	if !ok || sess == nil {
-		return ""
+	if sess, ok := session.FromRequest(r); ok && sess != nil {
+		if id := strings.TrimSpace(sess.AgentID); id != "" {
+			return "session:" + id
+		}
+		if id := strings.TrimSpace(sess.ID); id != "" {
+			return "session:" + id
+		}
 	}
-	return "session:" + sess.AgentID
+	if IsTrustedInternalProxy(r) {
+		if id := strings.TrimSpace(r.Header.Get(activity.HeaderPTSessionID)); id != "" {
+			return "proxy-session:" + id
+		}
+		if id := strings.TrimSpace(r.Header.Get(activity.HeaderAgentID)); id != "" {
+			return "proxy-agent:" + id
+		}
+	}
+	return ""
+}
+
+type limitedWriter struct {
+	w   io.Writer
+	n   int64
+	max int64
+}
+
+func (lw *limitedWriter) Write(p []byte) (int, error) {
+	if lw.n+int64(len(p)) > lw.max {
+		return 0, fmt.Errorf("output exceeds maximum size (%d bytes)", lw.max)
+	}
+	n, err := lw.w.Write(p)
+	lw.n += int64(n)
+	return n, err
 }
