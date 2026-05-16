@@ -13,4 +13,4 @@
 **Highest cost phase**: Phase 3 (27930 tokens, budget 600)
 **Root cause type**: missing
 **Fix**: Added Quick Start guidance to cap `/text` with `maxChars` on large real pages before requesting more content.
-**Commit**: [pending]
+**Commit**: 662544e
