@@ -86,7 +86,6 @@ function buildRequestHeaders(
   if (authorizationValue) headers["Authorization"] = authorizationValue;
   if (context?.agentId) headers["X-OpenClaw-Agent-Id"] = context.agentId;
   if (context?.sessionId) headers["X-OpenClaw-Session-Id"] = context.sessionId;
-  if (context?.sessionKey) headers["X-OpenClaw-Session-Key"] = context.sessionKey;
   return headers;
 }
 

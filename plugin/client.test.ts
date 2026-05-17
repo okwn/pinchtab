@@ -127,7 +127,6 @@ describe("pinchtabFetch", () => {
       Authorization: "Bearer secret",
       "X-OpenClaw-Agent-Id": "writer",
       "X-OpenClaw-Session-Id": "session-123",
-      "X-OpenClaw-Session-Key": "chat:writer",
     });
   });
 });

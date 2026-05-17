@@ -37,7 +37,6 @@ export function rememberRuntimeContext(context?: PluginRuntimeContext): AgentSes
     key,
     agentId: context?.agentId ?? existing?.agentId,
     sessionId: context?.sessionId ?? existing?.sessionId,
-    sessionKey: context?.sessionKey ?? existing?.sessionKey,
     lastTabId: existing?.lastTabId,
     updatedAt: Date.now(),
   };
@@ -159,7 +158,6 @@ export async function getEnhancedHealth(cfg: PluginConfig, context?: PluginRunti
     result.agentSession = {
       agentId: agentSession.agentId,
       sessionId: agentSession.sessionId,
-      sessionKey: agentSession.sessionKey,
       lastTabId: agentSession.lastTabId,
     };
   }

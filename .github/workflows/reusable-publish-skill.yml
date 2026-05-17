@@ -77,6 +77,4 @@ jobs:
             --changelog "Release v$VERSION"
             --tags latest
           )
-          # TODO: Remove --migrate-owner after the first org-owned skill release.
-          ARGS+=(--migrate-owner)
           clawhub skill publish "${ARGS[@]}"

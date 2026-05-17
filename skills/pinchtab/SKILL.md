@@ -1,6 +1,6 @@
 ---
 name: pinchtab
-description: "Use this skill when a task needs browser automation through PinchTab: open a website, inspect interactive elements, click through flows, fill out forms, scrape page text, log into sites with a persistent profile, export screenshots or PDFs, manage multiple browser instances, or fall back to the HTTP API when the CLI is unavailable. Prefer this skill for token-efficient browser work driven by stable accessibility refs such as `e5` and `e12`."
+description: "Use this skill when a task needs browser automation through PinchTab: open a website, inspect interactive elements, click through flows, fill out forms, scrape page text, reuse a dedicated automation profile with user approval, export screenshots or PDFs, manage multiple browser instances, or fall back to the HTTP API when the CLI is unavailable. Prefer this skill for token-efficient browser work driven by stable accessibility refs such as `e5` and `e12`."
 metadata:
   openclaw:
     requires:
@@ -79,11 +79,9 @@ Auto-detection: bare `eN`→ref, `#`/`.`/`[...]`→CSS, `//`→XPath. Use explic
 
 `&&` when you don't need intermediate output (`pinchtab nav <url> --snap && pinchtab click e3 --snap-diff`). Run separately when you must read refs before acting.
 
-## Challenge Solving
+## Restricted Challenge Handling
 
-Pages showing "Just a moment..." etc.: `POST /solve {"maxAttempts":3}` (or `/tabs/TAB_ID/solve`). Returns immediately if no challenge is present. See [api.md](./references/api.md).
-
-**Requires explicit user approval.** Do not call `/solve` or enable stealth features without the user confirming that challenge-solving is needed for the current task. Never enable `stealthLevel` without user consent.
+Anti-bot interstitials and challenge handling are restricted operations. Only attempt them with explicit user approval for the current task and only when the target site permits that automation. See [api.md](./references/api.md) for the relevant endpoints if challenge handling is explicitly approved.
 
 ## Authentication and State
 
@@ -113,7 +111,7 @@ After changing config with the server running, restart to apply: `pinchtab serve
 ### Server and targeting
 
 ```bash
-pinchtab server | daemon install | health
+pinchtab server | health
 pinchtab server stop                                # stop any running server (foreground or background)
 pinchtab server restart                             # stop + restart in background (applies config changes)
 pinchtab instances | profiles
@@ -121,6 +119,8 @@ pinchtab --server http://localhost:9868 snap -i -c  # target a specific instance
 ```
 
 `pinchtab server` prints `READY` to stdout when the browser instance is up and ready to accept commands. Read its output — it includes hints on how to get started (session creation, first nav).
+
+The optional background daemon is for local convenience, not normal agent workflow. Prefer the foreground server unless the user explicitly wants a persistent local service.
 
 ### Navigation and tabs
 
