@@ -31,7 +31,7 @@ fi
 echo -e "  ${GREEN}✓${NC} found request id: $REQ_ID"
 ((ASSERTIONS_PASSED++)) || true
 
-DETAIL=$(e2e_curl -s "${E2E_SERVER}/network/${REQ_ID}?body=true&waitRetained=true&timeoutMs=2000")
+DETAIL=$(e2e_curl -s "${E2E_SERVER}/network/${REQ_ID}?body=true&bodyMode=retained-preferred&timeoutMs=2000")
 
 echo "$DETAIL" | jq -e '.bodyRetained == true' >/dev/null 2>&1
 if [ $? -eq 0 ]; then
@@ -39,6 +39,16 @@ if [ $? -eq 0 ]; then
   ((ASSERTIONS_PASSED++)) || true
 else
   echo -e "  ${RED}✗${NC} expected bodyRetained=true"
+  echo "$DETAIL" | jq .
+  ((ASSERTIONS_FAILED++)) || true
+fi
+
+echo "$DETAIL" | jq -e '.bodySource == "retained"' >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  echo -e "  ${GREEN}✓${NC} bodySource=retained"
+  ((ASSERTIONS_PASSED++)) || true
+else
+  echo -e "  ${RED}✗${NC} expected bodySource=retained"
   echo "$DETAIL" | jq .
   ((ASSERTIONS_FAILED++)) || true
 fi

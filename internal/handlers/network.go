@@ -17,6 +17,15 @@ const (
 	maxWaitRetainedTimeout     = 30 * time.Second
 )
 
+type networkBodyMode string
+
+const (
+	networkBodyModeAuto              networkBodyMode = "auto"
+	networkBodyModeRetainedPreferred networkBodyMode = "retained-preferred"
+	networkBodyModeRetainedOnly      networkBodyMode = "retained-only"
+	networkBodyModeLiveOnly          networkBodyMode = "live-only"
+)
+
 // parseBufferSize extracts an optional bufferSize query param. Returns 0 if absent.
 func parseBufferSize(r *http.Request) int {
 	if v := r.URL.Query().Get("bufferSize"); v != "" {
@@ -33,6 +42,24 @@ func parseBoolQuery(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func parseNetworkBodyMode(r *http.Request) networkBodyMode {
+	switch strings.ToLower(strings.TrimSpace(r.URL.Query().Get("bodyMode"))) {
+	case "", "auto":
+		return networkBodyModeAuto
+	case "retained-preferred", "retainedpreferred":
+		return networkBodyModeRetainedPreferred
+	case "retained-only", "retainedonly":
+		return networkBodyModeRetainedOnly
+	case "live-only", "liveonly":
+		return networkBodyModeLiveOnly
+	default:
+		if parseBoolQuery(r.URL.Query().Get("waitRetained")) {
+			return networkBodyModeRetainedPreferred
+		}
+		return networkBodyModeAuto
 	}
 }
 
@@ -85,6 +112,7 @@ func populateRetainedBodyResult(result map[string]any, entry bridge.NetworkEntry
 	}
 	if entry.BodyRetained {
 		result["bodyRetained"] = true
+		result["bodySource"] = "retained"
 	}
 	if entry.BodyPending {
 		result["bodyPending"] = true
@@ -100,6 +128,14 @@ func populateRetainedBodyResult(result map[string]any, entry bridge.NetworkEntry
 	}
 	if entry.BodyError != "" {
 		result["bodyError"] = entry.BodyError
+	}
+}
+
+func populateLiveBodyResult(result map[string]any, body string, base64Encoded bool) {
+	result["responseBody"] = body
+	result["bodySource"] = "live"
+	if base64Encoded {
+		result["base64Encoded"] = true
 	}
 }
 
@@ -242,8 +278,8 @@ func (h *Handlers) HandleNetworkByID(w http.ResponseWriter, r *http.Request) {
 
 	// Optionally include response body
 	if r.URL.Query().Get("body") == "true" && entry.Finished && !entry.Failed {
-		waitRetained := parseBoolQuery(r.URL.Query().Get("waitRetained"))
-		if waitRetained && entry.BodyPending {
+		bodyMode := parseNetworkBodyMode(r)
+		if bodyMode == networkBodyModeRetainedPreferred && entry.BodyPending {
 			entry, ok = waitForRetainedBody(buf, requestID, parseWaitRetainedTimeout(r))
 			if !ok {
 				httpx.Error(w, 404, fmt.Errorf("request %s not found", requestID))
@@ -251,24 +287,26 @@ func (h *Handlers) HandleNetworkByID(w http.ResponseWriter, r *http.Request) {
 			}
 			result["entry"] = entry
 		}
-		if entry.BodyRetained {
-			populateRetainedBodyResult(result, entry)
-		} else if entry.BodyPending || (entry.BodyError != "" && !entry.BodySkipped) {
-			populateRetainedBodyResult(result, entry)
-		} else {
+		switch {
+		case bodyMode == networkBodyModeLiveOnly:
 			body, base64Encoded, err := bridge.GetResponseBodyDirect(tabCtx, requestID)
 			if err != nil {
 				result["bodyError"] = err.Error()
 			} else {
-				buf.Update(requestID, func(entry *bridge.NetworkEntry) {
-					entry.ResponseBody = body
-					entry.Base64Encoded = base64Encoded
-					entry.BodyRetained = true
-					entry.BodyError = ""
-				})
-				result["responseBody"] = body
-				result["base64Encoded"] = base64Encoded
-				result["bodyRetained"] = true
+				populateLiveBodyResult(result, body, base64Encoded)
+			}
+		case entry.BodyRetained:
+			populateRetainedBodyResult(result, entry)
+		case bodyMode == networkBodyModeRetainedOnly:
+			populateRetainedBodyResult(result, entry)
+		case entry.BodyPending || entry.BodyError != "":
+			populateRetainedBodyResult(result, entry)
+		default:
+			body, base64Encoded, err := bridge.GetResponseBodyDirect(tabCtx, requestID)
+			if err != nil {
+				result["bodyError"] = err.Error()
+			} else {
+				populateLiveBodyResult(result, body, base64Encoded)
 			}
 		}
 		populateRetainedBodyResult(result, entry)

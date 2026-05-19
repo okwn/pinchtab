@@ -564,6 +564,7 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 			entry.BodyPending = false
 			entry.BodySkipped = true
 			entry.BodySkipReason = "retention disabled"
+			entry.BodyError = ""
 		})
 		return
 	}
@@ -572,7 +573,7 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 			entry.BodyPending = false
 			entry.BodySkipped = true
 			entry.BodySkipReason = "retention budget exceeded"
-			entry.BodyError = "retention budget exceeded"
+			entry.BodyError = ""
 		})
 		return
 	}
@@ -584,7 +585,7 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 			entry.BodyPending = false
 			entry.BodySkipped = true
 			entry.BodySkipReason = "retention concurrency limit reached"
-			entry.BodyError = "retention concurrency limit reached"
+			entry.BodyError = ""
 		})
 		return
 	}
@@ -592,6 +593,8 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 	if err != nil {
 		buf.Update(requestID, func(entry *NetworkEntry) {
 			entry.BodyPending = false
+			entry.BodySkipped = false
+			entry.BodySkipReason = ""
 			entry.BodyError = err.Error()
 		})
 		return
@@ -607,7 +610,7 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 			entry.BodyPending = false
 			entry.BodySkipped = true
 			entry.BodySkipReason = "retention budget exceeded"
-			entry.BodyError = "retention budget exceeded"
+			entry.BodyError = ""
 		})
 		return
 	}
