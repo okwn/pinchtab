@@ -35,6 +35,11 @@
       "ready": ["E2E_SERVER", "E2E_FULL_SERVER"],
       "tags": ["network", "route", "interception", "smoke"]
     },
+    "api/network-retain-body.sh": {
+      "services": ["pinchtab", "pinchtab-retain", "fixtures"],
+      "ready": ["E2E_SERVER", "E2E_RETAIN_SERVER"],
+      "tags": ["network", "retain", "body", "smoke"]
+    },
     "api/secrets-extended.sh": {
       "tags": ["actions", "secrets", "credentials"]
     },

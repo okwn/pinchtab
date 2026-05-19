@@ -57,14 +57,16 @@ func (fc FileConfig) MarshalJSON() ([]byte, error) {
 		Schema:        fc.Schema,
 		ConfigVersion: fc.ConfigVersion,
 		Server: serverConfigJSON{
-			Port:              fc.Server.Port,
-			Bind:              fc.Server.Bind,
-			Token:             fc.Server.Token,
-			StateDir:          fc.Server.StateDir,
-			Engine:            fc.Server.Engine,
-			NetworkBufferSize: fc.Server.NetworkBufferSize,
-			TrustProxyHeaders: fc.Server.TrustProxyHeaders,
-			CookieSecure:      fc.Server.CookieSecure,
+			Port:                      fc.Server.Port,
+			Bind:                      fc.Server.Bind,
+			Token:                     fc.Server.Token,
+			StateDir:                  fc.Server.StateDir,
+			Engine:                    fc.Server.Engine,
+			NetworkBufferSize:         fc.Server.NetworkBufferSize,
+			RetainNetworkBodies:       fc.Server.RetainNetworkBodies,
+			RetainNetworkBodyMaxBytes: fc.Server.RetainNetworkBodyMaxBytes,
+			TrustProxyHeaders:         fc.Server.TrustProxyHeaders,
+			CookieSecure:              fc.Server.CookieSecure,
 		},
 		Browser: browserConfigJSON{
 			ChromeVersion:    fc.Browser.ChromeVersion,
@@ -309,18 +311,22 @@ func FileConfigFromRuntime(cfg *RuntimeConfig) FileConfig {
 		v := cfg.NetworkBufferSize
 		netBufSize = &v
 	}
+	retainBodies := cfg.RetainNetworkBodies
+	retainBodyMaxBytes := cfg.RetainNetworkBodyMaxBytes
 
 	fc := FileConfig{
 		Schema: CurrentConfigSchemaURL(),
 		Server: ServerConfig{
-			Port:              cfg.Port,
-			Bind:              cfg.Bind,
-			Token:             cfg.Token,
-			StateDir:          cfg.StateDir,
-			Engine:            cfg.Engine,
-			NetworkBufferSize: netBufSize,
-			TrustProxyHeaders: &cfg.TrustProxyHeaders,
-			CookieSecure:      cfg.CookieSecure,
+			Port:                      cfg.Port,
+			Bind:                      cfg.Bind,
+			Token:                     cfg.Token,
+			StateDir:                  cfg.StateDir,
+			Engine:                    cfg.Engine,
+			NetworkBufferSize:         netBufSize,
+			RetainNetworkBodies:       &retainBodies,
+			RetainNetworkBodyMaxBytes: &retainBodyMaxBytes,
+			TrustProxyHeaders:         &cfg.TrustProxyHeaders,
+			CookieSecure:              cfg.CookieSecure,
 		},
 		Browser: BrowserConfig{
 			ChromeVersion:    cfg.ChromeVersion,

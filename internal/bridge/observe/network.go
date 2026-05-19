@@ -56,6 +56,9 @@ type NetworkEntry struct {
 	ResponseBody    string            `json:"responseBody,omitempty"`
 	Base64Encoded   bool              `json:"base64Encoded,omitempty"`
 	BodyRetained    bool              `json:"bodyRetained,omitempty"`
+	BodyPending     bool              `json:"bodyPending,omitempty"`
+	BodySkipped     bool              `json:"bodySkipped,omitempty"`
+	BodySkipReason  string            `json:"bodySkipReason,omitempty"`
 	BodyTruncated   bool              `json:"bodyTruncated,omitempty"`
 	BodyError       string            `json:"bodyError,omitempty"`
 }
@@ -487,6 +490,12 @@ func (nm *NetworkMonitor) StartCaptureWithSize(tabCtx context.Context, tabID str
 				if e.EncodedDataLength > 0 {
 					entry.Size = int64(e.EncodedDataLength)
 				}
+				if nm.bodyRetentionEnabled() {
+					entry.BodyPending = true
+					entry.BodySkipped = false
+					entry.BodySkipReason = ""
+					entry.BodyError = ""
+				}
 			})
 			buf.MarkRequestEnd(string(e.RequestID))
 			go nm.maybeRetainBody(tabCtx, buf, string(e.RequestID))
@@ -539,17 +548,32 @@ func (nm *NetworkMonitor) ClearAll() {
 	}
 }
 
+func (nm *NetworkMonitor) bodyRetentionEnabled() bool {
+	nm.mu.RLock()
+	defer nm.mu.RUnlock()
+	return nm.retainBodies
+}
+
 func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBuffer, requestID string) {
 	nm.mu.RLock()
 	enabled := nm.retainBodies
 	maxBytes := nm.retainBodyMaxBytes
 	nm.mu.RUnlock()
 	if !enabled {
+		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyPending = false
+			entry.BodySkipped = true
+			entry.BodySkipReason = "retention disabled"
+			entry.BodyError = ""
+		})
 		return
 	}
 	if buf.RetainedBytes() >= nm.retainBodyMaxPerTab {
 		buf.Update(requestID, func(entry *NetworkEntry) {
-			entry.BodyError = "retention budget exceeded"
+			entry.BodyPending = false
+			entry.BodySkipped = true
+			entry.BodySkipReason = "retention budget exceeded"
+			entry.BodyError = ""
 		})
 		return
 	}
@@ -558,13 +582,19 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 		defer func() { <-nm.retainBodySemaphore }()
 	default:
 		buf.Update(requestID, func(entry *NetworkEntry) {
-			entry.BodyError = "retention concurrency limit reached"
+			entry.BodyPending = false
+			entry.BodySkipped = true
+			entry.BodySkipReason = "retention concurrency limit reached"
+			entry.BodyError = ""
 		})
 		return
 	}
 	body, base64Encoded, err := GetResponseBodyDirect(tabCtx, requestID)
 	if err != nil {
 		buf.Update(requestID, func(entry *NetworkEntry) {
+			entry.BodyPending = false
+			entry.BodySkipped = false
+			entry.BodySkipReason = ""
 			entry.BodyError = err.Error()
 		})
 		return
@@ -577,7 +607,10 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 	remainingBudget := int(nm.retainBodyMaxPerTab - buf.RetainedBytes())
 	if remainingBudget <= 0 {
 		buf.Update(requestID, func(entry *NetworkEntry) {
-			entry.BodyError = "retention budget exceeded"
+			entry.BodyPending = false
+			entry.BodySkipped = true
+			entry.BodySkipReason = "retention budget exceeded"
+			entry.BodyError = ""
 		})
 		return
 	}
@@ -589,6 +622,9 @@ func (nm *NetworkMonitor) maybeRetainBody(tabCtx context.Context, buf *NetworkBu
 		entry.ResponseBody = body
 		entry.Base64Encoded = base64Encoded
 		entry.BodyRetained = true
+		entry.BodyPending = false
+		entry.BodySkipped = false
+		entry.BodySkipReason = ""
 		entry.BodyTruncated = truncated
 		entry.BodyError = ""
 	})

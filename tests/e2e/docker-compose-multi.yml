@@ -75,6 +75,18 @@ services:
       - "127.0.0.1:9995:9999"
     healthcheck: *pinchtab-healthcheck
 
+  pinchtab-retain:
+    <<: *pinchtab-base
+    environment:
+      PINCHTAB_CONFIG: /data/e2e-config/pinchtab-network-retain-bodies.json
+    volumes:
+      - ./config/pinchtab-network-retain-bodies.json:/fixture-config/pinchtab-network-retain-bodies.json:ro
+      - ./fixtures/test-extension:/extensions/test-extension
+    command: ["/bin/sh", "-lc", "mkdir -p /data/e2e-config && cp /fixture-config/pinchtab-network-retain-bodies.json /data/e2e-config/pinchtab-network-retain-bodies.json && exec /usr/local/bin/docker-entrypoint.sh pinchtab server"]
+    ports:
+      - "127.0.0.1:9993:9999"
+    healthcheck: *pinchtab-healthcheck
+
   pinchtab-lite:
     <<: *pinchtab-base
     environment:
@@ -148,6 +160,8 @@ services:
         condition: service_healthy
       pinchtab-full:
         condition: service_healthy
+      pinchtab-retain:
+        condition: service_healthy
       pinchtab-lite:
         condition: service_healthy
       pinchtab-bridge:
@@ -160,6 +174,7 @@ services:
       - E2E_AUTOCLOSE_SERVER=http://pinchtab-autoclose:9999
       - E2E_MEDIUM_SERVER=http://pinchtab-medium:9999
       - E2E_FULL_SERVER=http://pinchtab-full:9999
+      - E2E_RETAIN_SERVER=http://pinchtab-retain:9999
       - E2E_LITE_SERVER=http://pinchtab-lite:9999
       - E2E_SERVER_TOKEN=e2e-token
       - E2E_BRIDGE_URL=http://pinchtab-bridge:9999

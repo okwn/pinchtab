@@ -475,11 +475,17 @@ Network query parameters:
 - `limit`
 - `bufferSize`
 - `body=true` on detail requests
+- `bodyMode=auto|retained-preferred|retained-only|live-only` on detail requests to choose how response bodies are resolved
+- `timeoutMs` on detail requests to bound the retained-body wait window (default 2000, max 30000)
 
 Response body behavior for network detail/export:
 
 - by default, response bodies are fetched on demand from live CDP state and may no longer be available for older requests
 - when `server.retainNetworkBodies=true`, PinchTab opportunistically retains bounded response bodies in the in-memory network buffer and returns the retained body first
+- `bodyMode=retained-preferred` waits briefly for pending retained-body capture before falling back to live CDP
+- `bodyMode=retained-only` never falls back to live CDP and returns explicit pending/skipped/error state instead
+- detail responses may expose `bodySource=retained|live` to distinguish which path produced the returned body
+- retained-body detail responses may expose `bodyPending=true` while capture is still in flight, or `bodySkipped=true` with `bodySkipReason` when retention was intentionally not completed
 - retained bodies are capped by `server.retainNetworkBodyMaxBytes`; oversized retained bodies are truncated and marked with `bodyTruncated=true`
 - retained responses may include `bodyRetained=true`
 

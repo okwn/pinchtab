@@ -53,12 +53,13 @@ func TestDryRunExtendedPlan(t *testing.T) {
 	out := stdout.String()
 	for _, want := range []string{
 		"suite:  extended",
-		"docker compose -f tests/e2e/docker-compose-multi.yml up -d pinchtab pinchtab-secure pinchtab-medium pinchtab-full pinchtab-lite pinchtab-bridge fixtures",
+		"docker compose -f tests/e2e/docker-compose-multi.yml up -d pinchtab pinchtab-secure pinchtab-medium pinchtab-full pinchtab-retain pinchtab-lite pinchtab-bridge fixtures",
 		"run --rm --no-deps",
 		"E2E_READY_TARGETS=E2E_SERVER E2E_SECURE_SERVER",
 		"E2E_SUMMARY_TITLE=PinchTab E2E API Extended Suite",
 		"runner-api /bin/bash /e2e/run.sh scenario=actions-basic.sh",
 		"scenario=actions-extended.sh",
+		"scenario=network-retain-body.sh",
 		"E2E_SUMMARY_TITLE=PinchTab E2E CLI Extended Suite",
 		"runner-cli /bin/bash /e2e/run.sh scenario=actions-basic.sh",
 		"scenario=actions-extended.sh",
@@ -171,6 +172,20 @@ func TestScenarioMetadataDefaultsAndManifestOverrides(t *testing.T) {
 	}
 	if !hasString(orchestrator.Tags, "multiinstance") || !hasString(orchestrator.Tags, "bridge") {
 		t.Fatalf("expected orchestrator tags, got: %#v", orchestrator.Tags)
+	}
+
+	retain, ok := catalog.find("api", "network-retain-body.sh")
+	if !ok {
+		t.Fatal("api/network-retain-body.sh missing from scenario catalog")
+	}
+	if got := strings.Join(retain.Services, " "); got != "pinchtab pinchtab-retain fixtures" {
+		t.Fatalf("unexpected retained-body services: %s", got)
+	}
+	if got := strings.Join(retain.Ready, " "); got != "E2E_SERVER E2E_RETAIN_SERVER" {
+		t.Fatalf("unexpected retained-body ready targets: %s", got)
+	}
+	if !hasString(retain.Tags, "retain") || !hasString(retain.Tags, "smoke") {
+		t.Fatalf("expected retained-body tags, got: %#v", retain.Tags)
 	}
 }
 

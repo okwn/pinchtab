@@ -17,14 +17,16 @@ type fileConfigJSON struct {
 }
 
 type serverConfigJSON struct {
-	Port              string `json:"port"`
-	Bind              string `json:"bind"`
-	Token             string `json:"token"`
-	StateDir          string `json:"stateDir"`
-	Engine            string `json:"engine"`
-	NetworkBufferSize *int   `json:"networkBufferSize,omitempty"`
-	TrustProxyHeaders *bool  `json:"trustProxyHeaders,omitempty"`
-	CookieSecure      *bool  `json:"cookieSecure,omitempty"`
+	Port                      string `json:"port"`
+	Bind                      string `json:"bind"`
+	Token                     string `json:"token"`
+	StateDir                  string `json:"stateDir"`
+	Engine                    string `json:"engine"`
+	NetworkBufferSize         *int   `json:"networkBufferSize,omitempty"`
+	RetainNetworkBodies       *bool  `json:"retainNetworkBodies,omitempty"`
+	RetainNetworkBodyMaxBytes *int   `json:"retainNetworkBodyMaxBytes,omitempty"`
+	TrustProxyHeaders         *bool  `json:"trustProxyHeaders,omitempty"`
+	CookieSecure              *bool  `json:"cookieSecure,omitempty"`
 }
 
 type browserConfigJSON struct {

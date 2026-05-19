@@ -257,6 +257,184 @@ func TestHandleNetworkByIDUsesRetainedBody(t *testing.T) {
 	}
 }
 
+func TestHandleNetworkByIDRetainedPreferredReturnsBodyAfterPendingResolves(t *testing.T) {
+	nm := bridge.NewNetworkMonitor(100)
+	buf := nm.GetOrCreateBufferForTest("tab1")
+	buf.Add(bridge.NetworkEntry{
+		RequestID:    "pending-1",
+		URL:          "https://api.example.com/data",
+		Method:       "GET",
+		ResourceType: "XHR",
+		Finished:     true,
+		BodyPending:  true,
+	})
+	h := newNetworkTestHandler(nm)
+
+	go func() {
+		time.Sleep(40 * time.Millisecond)
+		buf.Update("pending-1", func(entry *bridge.NetworkEntry) {
+			entry.ResponseBody = "{\"ok\":true}"
+			entry.BodyRetained = true
+			entry.BodyPending = false
+		})
+	}()
+
+	req := httptest.NewRequest("GET", "/network/pending-1?body=true&bodyMode=retained-preferred&timeoutMs=250", nil)
+	req.SetPathValue("requestId", "pending-1")
+	w := httptest.NewRecorder()
+	h.HandleNetworkByID(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["responseBody"] != "{\"ok\":true}" {
+		t.Fatalf("expected retained response body, got %v", got["responseBody"])
+	}
+	if got["bodyRetained"] != true {
+		t.Fatalf("expected bodyRetained=true, got %v", got["bodyRetained"])
+	}
+	if got["bodySource"] != "retained" {
+		t.Fatalf("expected bodySource=retained, got %v", got["bodySource"])
+	}
+	if _, ok := got["bodyPending"]; ok {
+		t.Fatalf("expected bodyPending to clear after wait, got %v", got["bodyPending"])
+	}
+	entryMap, ok := got["entry"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected entry map, got %T", got["entry"])
+	}
+	if entryMap["bodyRetained"] != true {
+		t.Fatalf("expected nested entry bodyRetained=true, got %v", entryMap["bodyRetained"])
+	}
+}
+
+func TestHandleNetworkByIDRetainedPreferredTimeoutReturnsPendingState(t *testing.T) {
+	nm := bridge.NewNetworkMonitor(100)
+	buf := nm.GetOrCreateBufferForTest("tab1")
+	buf.Add(bridge.NetworkEntry{
+		RequestID:    "pending-timeout",
+		URL:          "https://api.example.com/data",
+		Method:       "GET",
+		ResourceType: "XHR",
+		Finished:     true,
+		BodyPending:  true,
+	})
+	h := newNetworkTestHandler(nm)
+
+	req := httptest.NewRequest("GET", "/network/pending-timeout?body=true&bodyMode=retained-preferred&timeoutMs=20", nil)
+	req.SetPathValue("requestId", "pending-timeout")
+	w := httptest.NewRecorder()
+	h.HandleNetworkByID(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["bodyPending"] != true {
+		t.Fatalf("expected bodyPending=true on timeout, got %v", got["bodyPending"])
+	}
+	if _, ok := got["responseBody"]; ok {
+		t.Fatalf("expected no responseBody on timeout, got %v", got["responseBody"])
+	}
+	if _, ok := got["bodyError"]; ok {
+		t.Fatalf("expected no bodyError on timeout, got %v", got["bodyError"])
+	}
+	entryMap, ok := got["entry"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected entry map, got %T", got["entry"])
+	}
+	if entryMap["bodyPending"] != true {
+		t.Fatalf("expected nested entry bodyPending=true, got %v", entryMap["bodyPending"])
+	}
+}
+
+func TestHandleNetworkByIDRetainedOnlyReturnsSkippedStateWithoutBodyError(t *testing.T) {
+	nm := bridge.NewNetworkMonitor(100)
+	buf := nm.GetOrCreateBufferForTest("tab1")
+	buf.Add(bridge.NetworkEntry{
+		RequestID:      "skipped-1",
+		URL:            "https://api.example.com/data",
+		Method:         "GET",
+		ResourceType:   "XHR",
+		Finished:       true,
+		BodySkipped:    true,
+		BodySkipReason: "retention budget exceeded",
+	})
+	h := newNetworkTestHandler(nm)
+
+	req := httptest.NewRequest("GET", "/network/skipped-1?body=true&bodyMode=retained-only", nil)
+	req.SetPathValue("requestId", "skipped-1")
+	w := httptest.NewRecorder()
+	h.HandleNetworkByID(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["bodySkipped"] != true {
+		t.Fatalf("expected bodySkipped=true, got %v", got["bodySkipped"])
+	}
+	if got["bodySkipReason"] != "retention budget exceeded" {
+		t.Fatalf("expected bodySkipReason to be preserved, got %v", got["bodySkipReason"])
+	}
+	if _, ok := got["bodyError"]; ok {
+		t.Fatalf("expected no bodyError for skipped retention, got %v", got["bodyError"])
+	}
+	if _, ok := got["responseBody"]; ok {
+		t.Fatalf("expected no responseBody in retained-only skip state, got %v", got["responseBody"])
+	}
+}
+
+func TestHandleNetworkByIDRetainedPreferredDoesNotPretendSkippedBodyWasRetained(t *testing.T) {
+	nm := bridge.NewNetworkMonitor(100)
+	seedBuffer(nm, "tab1")
+	buf := nm.GetOrCreateBufferForTest("tab1")
+	buf.Update("r1", func(entry *bridge.NetworkEntry) {
+		entry.BodySkipped = true
+		entry.BodySkipReason = "retention disabled"
+	})
+	h := newNetworkTestHandler(nm)
+
+	req := httptest.NewRequest("GET", "/network/r1?body=true&bodyMode=retained-preferred", nil)
+	req.SetPathValue("requestId", "r1")
+	w := httptest.NewRecorder()
+	h.HandleNetworkByID(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := got["bodyRetained"]; ok {
+		t.Fatalf("expected no bodyRetained marker for skipped retention, got %v", got["bodyRetained"])
+	}
+	if got["bodySkipped"] != true {
+		t.Fatalf("expected skip state to remain visible, got %v", got["bodySkipped"])
+	}
+	if got["bodySkipReason"] != "retention disabled" {
+		t.Fatalf("expected skip reason to remain visible, got %v", got["bodySkipReason"])
+	}
+	entryMap, ok := got["entry"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected entry map, got %T", got["entry"])
+	}
+	if entryMap["bodySkipped"] != true {
+		t.Fatalf("expected nested entry bodySkipped=true, got %v", entryMap["bodySkipped"])
+	}
+}
+
 func TestHandleNetworkByID_Found(t *testing.T) {
 	nm := bridge.NewNetworkMonitor(100)
 	seedBuffer(nm, "tab1")
