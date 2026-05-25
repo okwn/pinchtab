@@ -15,8 +15,9 @@ func TestStore_NilRevokeReturnsFalse(t *testing.T) {
 
 func TestStore_NilAuthenticateReturnsFalse(t *testing.T) {
 	var s *Store
-	if s.Authenticate("any-token") != nil {
-		t.Error("nil.Authenticate() expected nil session")
+	sess, ok := s.Authenticate("any-token")
+	if sess != nil || ok {
+		t.Error("nil.Authenticate() expected (nil, false)")
 	}
 }
 
@@ -28,10 +29,14 @@ func TestStore_NilListReturnsNil(t *testing.T) {
 }
 
 // Empty store behavior: operations on a store with no sessions.
-func TestStore_ListEmptyReturnsNil(t *testing.T) {
+func TestStore_ListEmptyReturnsEmptySlice(t *testing.T) {
 	s := NewStore(Config{Enabled: true, Mode: "preferred"})
-	if sessions := s.List(); sessions != nil {
-		t.Errorf("List() on empty store = %v, want nil", sessions)
+	sessions := s.List()
+	if sessions == nil {
+		t.Fatal("List() on empty store returned nil, want empty slice")
+	}
+	if len(sessions) != 0 {
+		t.Errorf("List() on empty store len = %d, want 0", len(sessions))
 	}
 }
 
@@ -44,8 +49,9 @@ func TestStore_RevokeNonexistentReturnsFalse(t *testing.T) {
 
 func TestStore_AuthenticateBadTokenReturnsNil(t *testing.T) {
 	s := NewStore(Config{Enabled: true, Mode: "preferred"})
-	if s.Authenticate("not-a-real-token") != nil {
-		t.Error("Authenticate(invalid) expected nil session")
+	sess, ok := s.Authenticate("not-a-real-token")
+	if sess != nil || ok {
+		t.Error("Authenticate(invalid) expected (nil, false)")
 	}
 }
 
@@ -67,15 +73,15 @@ func TestStore_CreateDuplicateAgentAllowed(t *testing.T) {
 		t.Error("duplicate Create() should yield distinct tokens")
 	}
 	// Both sessions should be valid
-	if s.Authenticate(tok1) == nil {
+	if sess, ok := s.Authenticate(tok1); sess == nil || !ok {
 		t.Error("first token should still be valid")
 	}
-	if s.Authenticate(tok2) == nil {
+	if sess, ok := s.Authenticate(tok2); sess == nil || !ok {
 		t.Error("second token should be valid")
 	}
 }
 
-// Idle timeout validation: zero and negative idle time should be accepted (means no idle timeout).
+// Idle timeout validation: zero and negative values are accepted and normalized.
 func TestStore_CreateWithZeroIdleTimeout(t *testing.T) {
 	s := NewStore(Config{Enabled: true, Mode: "preferred", IdleTimeout: 0})
 	_, _, err := s.Create("agent-zero", "")
@@ -92,7 +98,7 @@ func TestStore_CreateWithNegativeIdleTimeout(t *testing.T) {
 	}
 }
 
-// Max lifetime validation: zero and negative max lifetime should be accepted.
+// Max lifetime validation: zero and negative values are accepted and normalized.
 func TestStore_CreateWithZeroMaxLifetime(t *testing.T) {
 	s := NewStore(Config{Enabled: true, Mode: "preferred", MaxLifetime: 0})
 	_, _, err := s.Create("agent-zero-ml", "")
@@ -118,15 +124,15 @@ func TestStore_OnLifecycleNilFnIsSafe(t *testing.T) {
 	s.Revoke(sess.ID) // must not panic
 }
 
-// Revoke already-revoked session returns false.
-func TestStore_RevokeTwiceReturnsFalse(t *testing.T) {
+// Revoke is idempotent while the session entry still exists.
+func TestStore_RevokeTwiceReturnsTrue(t *testing.T) {
 	s := NewStore(Config{Enabled: true, Mode: "preferred"})
 	_, tok, _ := s.Create("agent-rev2", "")
 	sess, _ := s.Authenticate(tok)
 	if !s.Revoke(sess.ID) {
 		t.Fatal("first Revoke should succeed")
 	}
-	if s.Revoke(sess.ID) {
-		t.Error("second Revoke should return false")
+	if !s.Revoke(sess.ID) {
+		t.Error("second Revoke should still return true while the session exists")
 	}
 }
