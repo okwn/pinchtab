@@ -19,7 +19,7 @@ curl -X POST /navigate \
 
 Notes:
 
-- CLI users should prefer `pinchtab --agent-id <agent-id> ...` instead of setting the header manually
+- CLI users should prefer `pinchtab --agent-id <agent-id> ...` instead of setting the header mannually
 - scheduler-submitted tasks reuse their `agentId` as `X-Agent-Id` when the task is executed
 - omitted `tabId` resolves by caller identity: agent sessions use a session-scoped current tab, `X-Agent-Id` uses an agent-scoped current tab when no session is present, and anonymous requests use the shared global/default tab
 

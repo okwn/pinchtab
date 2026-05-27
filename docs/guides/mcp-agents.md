@@ -212,7 +212,7 @@ Element refs change after every navigation or significant DOM update. Always cal
 **MCP server not appearing in client**
 
 - Check the `command` value — `pinchtab` must be on PATH, or use an absolute path.
-- Run `pinchtab mcp` manually in a terminal to check for startup errors.
+- Run `pinchtab mcp` mannually in a terminal to check for startup errors.
 - Check stderr output from the MCP process (client-specific, often in a log file).
 
 ## Related Pages

@@ -44,4 +44,4 @@ brew install pinchtab/tap/pinchtab
 
 - The Homebrew formula is not published until the tap PR is merged.
 - No extra automation is required in `homebrew-tap` unless you want auto-merge.
-- The release workflow can also be run manually with `workflow_dispatch` and a tag input.
+- The release workflow can also be run mannually with `workflow_dispatch` and a tag input.

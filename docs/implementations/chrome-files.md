@@ -27,7 +27,7 @@ With the introduction of **New Headless mode** (`--headless=new`), Chrome's prof
 ### Headless Auto-Fallback
 To support parallel automation tasks, PinchTab implements an **automatic fallback for headless instances**:
 1.  If a headless instance tries to start using a profile that is already locked by another PinchTab process, it will **automatically create a unique temporary directory** (e.g., `/tmp/pinchtab-profile-*`).
-2.  This allows you to run multiple headless tasks in parallel without manually managing profile paths.
+2.  This allows you to run multiple headless tasks in parallel without mannually managing profile paths.
 
 ### Manual Parallelism (Headed Mode)
 In **headed mode**, PinchTab does *not* automatically fall back to a temporary directory (to avoid losing user session data unexpectedly). If you need to run multiple headed browsers in parallel, you must:
@@ -40,13 +40,13 @@ When building agents that use PinchTab, follow these guidelines:
 
 *   **Persistence**: Use named profiles (e.g., `agent-alpha`, `agent-beta`) if you need the browser to remember logins, cookies, or history across sessions.
 *   **Isolation**: For one-off tasks or high-concurrency scraping, rely on the default headless mode which handles directory isolation automatically if conflicts occur.
-*   **Cleanup**: If you manually create temporary directories, ensure they are cleaned up after the task is complete to avoid filling up disk space.
+*   **Cleanup**: If you mannually create temporary directories, ensure they are cleaned up after the task is complete to avoid filling up disk space.
 
 ## Troubleshooting
 
 If you see the error `"The profile appears to be in use by another Chromium process"`:
 1.  **Check for active instances**: Ensure you don't have another PinchTab or Chrome process already using that profile.
 2.  **Stale Locks**: If no process is active, PinchTab will attempt to automatically clear stale `SingletonLock` files on the next startup.
-3.  **Manual Fix**: In rare cases, you may need to manually remove the `SingletonLock` file from the profile directory.
+3.  **Manual Fix**: In rare cases, you may need to mannually remove the `SingletonLock` file from the profile directory.
 
 For more details on how PinchTab recovers from crashes, see [Chrome Profile Lock Recovery](./chrome-profile-lock-recovery.md).

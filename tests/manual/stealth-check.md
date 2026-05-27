@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records how to manually validate PinchTab stealth on public anti-bot and fingerprint sites.
+This document records how to mannually validate PinchTab stealth on public anti-bot and fingerprint sites.
 
 It is not a replacement for e2e tests.
 
@@ -103,7 +103,7 @@ curl -sf -H 'Authorization: Bearer live-test-token' \
 
 ## Secure-Context Manual Checks
 
-Service workers require a secure context. Use one of these when you want to validate service-worker stealth manually:
+Service workers require a secure context. Use one of these when you want to validate service-worker stealth mannually:
 
 - `https://...` on an origin you control
 - `http://localhost`

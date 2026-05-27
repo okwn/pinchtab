@@ -38,7 +38,7 @@ python3 -m http.server $FIXTURE_PORT --directory tests/tools/fixtures --bind 127
 
 ### 3. Point at a throwaway config — DO NOT init it or start the server
 
-Cold-start matches the documented first-use journey from the README: a user installs PinchTab and just runs `pinchtab nav <url>`. The CLI auto-creates a config (with a generated token) and auto-starts the server. The cold-start verifies that pathway works, so **do not run any of these manually**:
+Cold-start matches the documented first-use journey from the README: a user installs PinchTab and just runs `pinchtab nav <url>`. The CLI auto-creates a config (with a generated token) and auto-starts the server. The cold-start verifies that pathway works, so **do not run any of these mannually**:
 
 - `./pinchtab config init` — the auto-flow creates the config on first command. Step 0.1 is the test of that.
 - `./pinchtab server` — the auto-flow starts it on first command. Step 0.1 is the test of that.

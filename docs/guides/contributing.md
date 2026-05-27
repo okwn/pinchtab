@@ -328,7 +328,7 @@ Git hooks are installed by `./dev doctor` (or `./scripts/install-hooks.sh`). The
 - `golangci-lint` — Linting
 - `prettier` — Dashboard formatting
 
-To manually reinstall hooks:
+To mannually reinstall hooks:
 ```bash
 ./scripts/install-hooks.sh
 ```

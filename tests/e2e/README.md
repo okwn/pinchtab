@@ -257,7 +257,7 @@ The E2E tests run automatically:
 - On PRs: `api`, `cli`, and `infra` basic tests always run
 - On PRs: touching any non-basic scenario also triggers the matching extended suite on its native compose stack
 - On PRs: touching smoke scenarios or Docker smoke inputs triggers the smoke workflow
-- Manually via workflow dispatch: Extended tests for all groups
+- Mannually via workflow dispatch: Extended tests for all groups
 
 ## Result Files
 

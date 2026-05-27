@@ -165,7 +165,7 @@ pinchtab config init
 
 The dashboard Settings page does not expose or rotate `server.token`. Use `pinchtab config token` to copy the current token, or let `pinchtab security` restore or create one if `server.token` is empty.
 
-If you are calling the API manually:
+If you are calling the API mannually:
 
 ```bash
 curl -H "Authorization: Bearer <token>" http://127.0.0.1:9867/health
