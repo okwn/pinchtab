@@ -64,4 +64,4 @@ The logic is distributed across these components:
 By combining the Chrome-level `SingletonLock` with the application-level `pinchtab.pid`, PinchTab achieves:
 1. **Safety**: It never kills a browser being used by a healthy PinchTab instance.
 2. **Resilience**: It automatically "self-heals" after a crash or power failure.
-3. **Transparency**: Users don't need to manually `rm -rf` profile directories to fix "in use" errors.
+3. **Transparency**: Users don't need to mannually `rm -rf` profile directories to fix "in use" errors.

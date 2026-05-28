@@ -228,7 +228,7 @@ export default function MonitoringPage() {
           title="No active instances"
           description={
             expectsAutoInstance
-              ? "PinchTab expected a default instance, but it never became available. Start it manually or inspect the profile."
+              ? "PinchTab expected a default instance, but it never became available. Start it mannually or inspect the profile."
               : "Start the default instance or open Profiles to launch a different one."
           }
           icon="📡"

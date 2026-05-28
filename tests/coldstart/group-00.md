@@ -2,7 +2,7 @@
 
 A fresh user is told to "install PinchTab and run `pinchtab nav <url>`" — the CLI auto-creates a config and auto-starts the server. These steps prove that documented flow works end to end on a clean machine.
 
-**Do not** run `./pinchtab config init` or `./pinchtab server` manually. The whole point of group 0 is to verify the auto-flow handles them. Likewise do not create a session — the CLI uses the token from the auto-created config.
+**Do not** run `./pinchtab config init` or `./pinchtab server` mannually. The whole point of group 0 is to verify the auto-flow handles them. Likewise do not create a session — the CLI uses the token from the auto-created config.
 
 The setup section in `subagent-context.md` already exported `PINCHTAB_CONFIG=~/.pinchtab/coldstart-config-<timestamp>.json` to a non-existent path. Step 0.1 is the very first command you run against the binary.
 
@@ -20,7 +20,7 @@ Run a single navigation against the fixture server with no preceding `pinchtab` 
 - A managed Chrome instance has come up (`./pinchtab instances` shows at least one row, `status=running`).
 
 ### 0.2 Auto-created config matches OOTB defaults
-Without ever running `config init` manually, inspect what the auto-flow wrote:
+Without ever running `config init` mannually, inspect what the auto-flow wrote:
 
 ```bash
 ./pinchtab config validate

@@ -20,7 +20,7 @@ openclaw plugins install @pinchtab/pinchtab
 openclaw gateway restart
 ```
 
-By default the plugin auto-discovers local PinchTab settings from `~/.pinchtab/config.json`. If discovery succeeds, you usually do not need to set `baseUrl` or `token` manually. Prefer a local or otherwise fully trusted PinchTab server.
+By default the plugin auto-discovers local PinchTab settings from `~/.pinchtab/config.json`. If discovery succeeds, you usually do not need to set `baseUrl` or `token` mannually. Prefer a local or otherwise fully trusted PinchTab server.
 
 ## Configure
 

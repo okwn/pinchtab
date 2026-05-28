@@ -301,7 +301,7 @@ curl -X POST "http://localhost:9867/tabs/$TAB/action" \
 
 **Tab** — A single webpage. Each instance can have multiple tabs.
 
-**Bridge** — The single-instance runtime behind a managed instance. Usually spawned by the server, not started manually.
+**Bridge** — The single-instance runtime behind a managed instance. Usually spawned by the server, not started mannually.
 
 Read more in the [Core Concepts](https://pinchtab.com/docs/core-concepts) guide.
 
