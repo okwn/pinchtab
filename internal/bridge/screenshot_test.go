@@ -49,3 +49,54 @@ func TestProjectBoundsToClip(t *testing.T) {
 		t.Fatal("node without bounding box should remain unchanged")
 	}
 }
+
+func TestScaledScreenshotClip(t *testing.T) {
+	t.Run("scales existing clip", func(t *testing.T) {
+		clip := scaledScreenshotClip(ScreenshotOpts{
+			Clip:  &page.Viewport{X: 10, Y: 20, Width: 30, Height: 40, Scale: 2},
+			Scale: 0.5,
+		}, 0, 0, 0, 0)
+		if clip == nil {
+			t.Fatal("expected clip")
+		}
+		if clip.X != 10 || clip.Y != 20 || clip.Width != 30 || clip.Height != 40 {
+			t.Fatalf("clip geometry changed: %+v", clip)
+		}
+		if clip.Scale != 1 {
+			t.Fatalf("clip scale = %v, want 1", clip.Scale)
+		}
+	})
+
+	t.Run("uses viewport size for scaled viewport capture", func(t *testing.T) {
+		clip := scaledScreenshotClip(ScreenshotOpts{Scale: 0.25}, 1280, 720, 0, 0)
+		if clip == nil {
+			t.Fatal("expected clip")
+		}
+		if clip.Width != 1280 || clip.Height != 720 || clip.Scale != 0.25 {
+			t.Fatalf("clip = %+v", clip)
+		}
+	})
+
+	t.Run("uses document size for scaled beyond-viewport capture", func(t *testing.T) {
+		clip := scaledScreenshotClip(ScreenshotOpts{
+			Scale:          0.25,
+			BeyondViewport: true,
+		}, 1280, 720, 4096, 8192)
+		if clip == nil {
+			t.Fatal("expected clip")
+		}
+		if clip.Width != 4096 || clip.Height != 8192 || clip.Scale != 0.25 {
+			t.Fatalf("clip = %+v", clip)
+		}
+	})
+
+	t.Run("keeps full-page semantics when document size is unavailable", func(t *testing.T) {
+		clip := scaledScreenshotClip(ScreenshotOpts{
+			Scale:          0.25,
+			BeyondViewport: true,
+		}, 1280, 720, 0, 0)
+		if clip != nil {
+			t.Fatalf("expected nil clip, got %+v", clip)
+		}
+	})
+}

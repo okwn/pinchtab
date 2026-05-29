@@ -54,6 +54,42 @@ func fetchViewportSize(ctx context.Context) (float64, float64) {
 	return dims[0], dims[1]
 }
 
+// fetchDocumentSize returns the scrollable document dimensions in CSS pixels.
+// Used when beyond-viewport capture also needs clip.scale; the synthesized clip
+// must cover the document, not just the current viewport.
+func fetchDocumentSize(ctx context.Context) (float64, float64) {
+	const expression = `JSON.stringify((() => {
+		const d = document;
+		const de = d.documentElement;
+		const b = d.body || de;
+		return {
+			w: Math.max(de.scrollWidth, b.scrollWidth, de.clientWidth, de.offsetWidth),
+			h: Math.max(de.scrollHeight, b.scrollHeight, de.clientHeight, de.offsetHeight)
+		};
+	})())`
+	var result struct {
+		Result struct {
+			Value string `json:"value"`
+		} `json:"result"`
+	}
+	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return chromedp.FromContext(ctx).Target.Execute(ctx, "Runtime.evaluate", map[string]any{
+			"expression":    expression,
+			"returnByValue": true,
+		}, &result)
+	})); err != nil {
+		return 0, 0
+	}
+	var dims struct {
+		W float64 `json:"w"`
+		H float64 `json:"h"`
+	}
+	if err := json.Unmarshal([]byte(result.Result.Value), &dims); err != nil {
+		return 0, 0
+	}
+	return dims.W, dims.H
+}
+
 // ScreenshotOpts mirrors the subset of page.CaptureScreenshot parameters the
 // callers (HandleScreenshot, PairedCapture) need to coordinate on.
 type ScreenshotOpts struct {
@@ -75,6 +111,34 @@ type ScreenshotOpts struct {
 	ViewportHeight float64
 }
 
+func scaledScreenshotClip(opts ScreenshotOpts, viewportWidth, viewportHeight, documentWidth, documentHeight float64) *page.Viewport {
+	if opts.Scale <= 0 || opts.Scale == 1 {
+		return opts.Clip
+	}
+	if opts.Clip != nil {
+		clip := *opts.Clip
+		if clip.Scale == 0 {
+			clip.Scale = 1
+		}
+		clip.Scale *= opts.Scale
+		return &clip
+	}
+
+	width, height := viewportWidth, viewportHeight
+	if opts.BeyondViewport {
+		width, height = documentWidth, documentHeight
+	}
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	return &page.Viewport{
+		X: 0, Y: 0,
+		Width:  width,
+		Height: height,
+		Scale:  opts.Scale,
+	}
+}
+
 // CaptureScreenshot runs Page.captureScreenshot with the supplied options.
 // Quality is applied only for JPEG; clip and beyondViewport are mutually
 // exclusive (clip wins) — the same rule the handler enforces on input.
@@ -87,32 +151,19 @@ type ScreenshotOpts struct {
 func CaptureScreenshot(ctx context.Context, opts ScreenshotOpts) ([]byte, error) {
 	clip := opts.Clip
 	if opts.Scale > 0 && opts.Scale != 1 {
-		if clip != nil {
-			c := *clip
-			if c.Scale == 0 {
-				c.Scale = 1
-			}
-			c.Scale *= opts.Scale
-			clip = &c
-		} else {
-			// Synthesize a viewport-covering clip so CDP's clip.scale applies.
-			//
-			// Known issue: two back-to-back /capture?scale=<n!=1> on the same
-			// tab without nav between can hang on the second call. Workaround:
-			// nav between captures (see e2e cli/capture-basic.sh).
-			w, h := opts.ViewportWidth, opts.ViewportHeight
-			if w == 0 || h == 0 {
-				w, h = fetchViewportSize(ctx)
-			}
-			if w > 0 && h > 0 {
-				clip = &page.Viewport{
-					X: 0, Y: 0,
-					Width:  w,
-					Height: h,
-					Scale:  opts.Scale,
-				}
+		// Known issue: two back-to-back /capture?scale=<n!=1> on the same
+		// tab without nav between can hang on the second call. Workaround:
+		// nav between captures (see e2e cli/capture-basic.sh).
+		viewportWidth, viewportHeight := opts.ViewportWidth, opts.ViewportHeight
+		documentWidth, documentHeight := 0.0, 0.0
+		if clip == nil {
+			if opts.BeyondViewport {
+				documentWidth, documentHeight = fetchDocumentSize(ctx)
+			} else if viewportWidth == 0 || viewportHeight == 0 {
+				viewportWidth, viewportHeight = fetchViewportSize(ctx)
 			}
 		}
+		clip = scaledScreenshotClip(opts, viewportWidth, viewportHeight, documentWidth, documentHeight)
 	}
 
 	var buf []byte
