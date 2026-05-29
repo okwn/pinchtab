@@ -19,3 +19,6 @@ cd pinchtab
 ## Pull Requests
 
 Please keep GitHub's "Allow edits from maintainers" option enabled on your PRs. It makes small fixes, rebases, and merge-conflict resolution much faster.
+
+## Contributors
+- Documentation improvements (2026)
