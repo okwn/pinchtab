@@ -414,3 +414,7 @@ MIT — Free and open source.
 ---
 
 **Get started:** [pinchtab.com/docs](https://pinchtab.com/docs)
+
+## Contributing
+
+Contributions are welcome!
